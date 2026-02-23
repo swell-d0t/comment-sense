@@ -7,7 +7,7 @@ slowapi==0.1.9
 # ML
 vaderSentiment==3.3.2
 transformers==4.36.0
-torch==2.10.0
+torch==2.1.2+cpu --extra-index-url https://download.pytorch.org/whl/cpu
 langdetect==1.0.9
 
 # Database
