@@ -1,9 +1,3 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL
-
-if (!API_URL) {
-  throw new Error("NEXT_PUBLIC_API_URL is not set. Please configure it in .env.local.")
-}
-
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export interface CommentAnalysis {
@@ -114,6 +108,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>
 }
 
+function getApiUrl(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL
+  if (!url) {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not set. Please configure it in .env.local."
+    )
+  }
+  return url
+}
+
 // ── API Functions ───────────────────────────────────────────────────────────
 
 /**
@@ -123,6 +127,8 @@ export async function analyzeComments(
   label: string,
   rawText: string
 ): Promise<AnalysisResult> {
+  const API_URL = getApiUrl()
+
   const response = await fetch(`${API_URL}/api/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -139,6 +145,8 @@ export async function analyzeComments(
 export async function analyzeBatch(
   posts: { postId: string; label?: string }[]
 ): Promise<AnalysisResult[]> {
+  const API_URL = getApiUrl()
+
   const response = await fetch(`${API_URL}/api/analyze/batch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -153,6 +161,8 @@ export async function analyzeBatch(
  * Fetch the authenticated user's Instagram posts.
  */
 export async function fetchMyPosts(): Promise<InstagramPost[]> {
+  const API_URL = getApiUrl()
+
   const response = await fetch(`${API_URL}/api/instagram/posts`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -168,6 +178,8 @@ export async function fetchMyPosts(): Promise<InstagramPost[]> {
 export async function fetchPostComments(
   postId: string
 ): Promise<PostComment[]> {
+  const API_URL = getApiUrl()
+
   const response = await fetch(
     `${API_URL}/api/instagram/posts/${postId}/comments`,
     {
@@ -191,6 +203,8 @@ export interface AnalysisSummary {
 }
 
 export async function fetchHistory(): Promise<AnalysisSummary[]> {
+  const API_URL = getApiUrl()
+
   const response = await fetch(`${API_URL}/api/history`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -201,6 +215,8 @@ export async function fetchHistory(): Promise<AnalysisSummary[]> {
 }
 
 export async function fetchAnalysisDetail(id: string): Promise<AnalysisResult> {
+  const API_URL = getApiUrl()
+
   const response = await fetch(`${API_URL}/api/history/${id}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
