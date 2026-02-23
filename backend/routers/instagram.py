@@ -196,7 +196,7 @@ async def _fetch_user_posts(token: str) -> tuple[list[dict], Optional[str]]:
                     return [], "Your Instagram access has been revoked. Please reconnect."
 
                 if response.status_code != 200:
-                    logger.error("Posts fetch failed: %d %s", response.status_code, response.text[:200])
+                    logger.error("Posts fetch failed: status=%d", response.status_code)
                     return [], "Instagram returned an error. Please try again."
 
                 data = response.json()
@@ -266,8 +266,8 @@ async def _verify_post_ownership(
 
         if response.status_code != 200:
             logger.error(
-                "Ownership check failed for post %s: %d %s",
-                post_id, response.status_code, response.text[:100]
+                "Ownership check failed for post %s: status=%d",
+                post_id, response.status_code
             )
             return False, "API_ERROR"
 

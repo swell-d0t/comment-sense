@@ -26,12 +26,12 @@ import hmac
 import json
 import logging
 import os
-from base64 import b64decode
+from base64 import urlsafe_b64decode
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,8 +57,46 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "10080"))  # 7 days
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
+# Cookie/session security knobs (override via env)
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()  # lax|strict|none
+
 # Instagram permissions we request
 INSTAGRAM_SCOPES = "instagram_basic,instagram_manage_comments,pages_show_list"
+
+_ALLOWED_JWT_ALGS = {"HS256", "HS384", "HS512"}
+
+
+def _require_startup_secrets() -> None:
+    # Empty/weak JWT secrets make sessions forgeable.
+    if not JWT_SECRET or len(JWT_SECRET) < 32:
+        raise RuntimeError("JWT_SECRET must be set to a strong value (>= 32 chars).")
+    if JWT_ALGORITHM not in _ALLOWED_JWT_ALGS:
+        raise RuntimeError(f"JWT_ALGORITHM must be one of: {sorted(_ALLOWED_JWT_ALGS)}")
+
+    # OAuth will fail without these, but we keep startup working for endpoints that
+    # don't require Instagram connectivity (e.g. health check).
+    if not META_APP_ID:
+        logger.warning("META_APP_ID is not set — Instagram login will be unavailable.")
+    if not META_APP_SECRET:
+        logger.warning("META_APP_SECRET is not set — webhook verification will always fail.")
+
+
+def _b64url_decode(segment: str) -> bytes:
+    padding = "=" * ((4 - (len(segment) % 4)) % 4)
+    return urlsafe_b64decode(segment + padding)
+
+
+def _cookie_settings(request: Request) -> tuple[bool, str]:
+    secure = COOKIE_SECURE or (request.url.scheme == "https")
+    samesite = COOKIE_SAMESITE if COOKIE_SAMESITE in ("lax", "strict", "none") else "lax"
+    # SameSite=None requires Secure by browser rules.
+    if samesite == "none" and not secure:
+        secure = True
+    return secure, samesite
+
+
+_require_startup_secrets()
 
 
 # ── GET /auth/login ───────────────────────────────────────────────────────────
@@ -199,12 +237,13 @@ async def instagram_callback(
         url=f"{FRONTEND_URL}/dashboard",
         status_code=status.HTTP_302_FOUND,
     )
+    secure, samesite = _cookie_settings(request)
     redirect.set_cookie(
         key="session",
         value=jwt_token,
         httponly=True,       # JS cannot read this cookie
-        secure=False,        # Set True in production (requires HTTPS)
-        samesite="lax",      # Prevents CSRF for most cases
+        secure=secure,
+        samesite=samesite,
         max_age=JWT_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -328,12 +367,9 @@ async def get_current_user(
     """
     user = await _get_user_from_cookie(request, db)
     if user is None:
-        raise JSONResponse(
+        raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            content={
-                "error": "NOT_AUTHENTICATED",
-                "message": "Your session has expired. Please log in again."
-            }
+            detail={"error": "NOT_AUTHENTICATED", "message": "Your session has expired. Please log in again."},
         )
     return user
 
@@ -355,7 +391,7 @@ async def _exchange_code_for_token(code: str) -> Optional[str]:
                 },
             )
         if response.status_code != 200:
-            logger.error("Code exchange failed: %d %s", response.status_code, response.text[:200])
+            logger.error("Code exchange failed: status=%d", response.status_code)
             return None
         return response.json().get("access_token")
     except Exception as e:
@@ -449,7 +485,8 @@ async def _get_user_from_cookie(request: Request, db: AsyncSession) -> Optional[
 
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id: int = payload.get("sub")
+        sub = payload.get("sub")
+        user_id = int(sub) if sub is not None else None
         if user_id is None:
             return None
     except JWTError:
@@ -463,7 +500,7 @@ def _create_jwt(user_id: int) -> str:
     """Creates a JWT token encoding the user's database ID."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRE_MINUTES)
     return jwt.encode(
-        {"sub": user_id, "exp": expire},
+        {"sub": str(user_id), "exp": expire},
         JWT_SECRET,
         algorithm=JWT_ALGORITHM,
     )
@@ -475,11 +512,20 @@ def _verify_signed_request(signed_request: str) -> bool:
     This proves the webhook came from Meta, not a random attacker.
     """
     try:
+        if not META_APP_SECRET:
+            return False
         encoded_sig, payload = signed_request.split(".", 1)
-        sig = b64decode(encoded_sig + "==")
+        sig = _b64url_decode(encoded_sig)
+        payload_bytes = payload.encode()
+
+        # Validate the declared algorithm before using the payload
+        payload_json = json.loads(_b64url_decode(payload))
+        if payload_json.get("algorithm") != "HMAC-SHA256":
+            return False
+
         expected = hmac.new(
             META_APP_SECRET.encode(),
-            payload.encode(),
+            payload_bytes,
             hashlib.sha256,
         ).digest()
         return hmac.compare_digest(sig, expected)
@@ -491,9 +537,7 @@ def _parse_signed_request(signed_request: str) -> Optional[dict]:
     """Decodes and returns the payload of a verified signed_request."""
     try:
         _, payload = signed_request.split(".", 1)
-        padding = 4 - len(payload) % 4
-        decoded = b64decode(payload + "=" * padding)
-        return json.loads(decoded)
+        return json.loads(_b64url_decode(payload))
     except Exception:
         return None
 

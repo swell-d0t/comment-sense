@@ -61,7 +61,7 @@ class BatchAnalyzeRequest(BaseModel):
     options: AnalysisOptions = Field(default_factory=AnalysisOptions)
 
 
-@router.post("")
+@router.post("/")
 @limiter.limit("10/minute")
 async def analyze_single(
     request: Request,

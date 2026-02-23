@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("")
+@router.get("/")
 async def get_history(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

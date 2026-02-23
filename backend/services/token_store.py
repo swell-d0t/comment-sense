@@ -270,8 +270,8 @@ async def refresh_long_lived_token(
 
         if response.status_code != 200:
             logger.error(
-                "Token refresh failed for user %d: status %d, body: %s",
-                user_id, response.status_code, response.text[:200]
+                "Token refresh failed for user %d: status %d",
+                user_id, response.status_code
             )
             return None
 

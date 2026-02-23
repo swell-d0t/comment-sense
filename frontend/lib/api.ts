@@ -129,7 +129,7 @@ export async function analyzeComments(
 ): Promise<AnalysisResult> {
   const API_URL = getApiUrl()
 
-  const response = await fetch(`${API_URL}/api/analyze`, {
+  const response = await fetch(`${API_URL}/analyze/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -147,7 +147,7 @@ export async function analyzeBatch(
 ): Promise<AnalysisResult[]> {
   const API_URL = getApiUrl()
 
-  const response = await fetch(`${API_URL}/api/analyze/batch`, {
+  const response = await fetch(`${API_URL}/analyze/batch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -163,7 +163,7 @@ export async function analyzeBatch(
 export async function fetchMyPosts(): Promise<InstagramPost[]> {
   const API_URL = getApiUrl()
 
-  const response = await fetch(`${API_URL}/api/instagram/posts`, {
+  const response = await fetch(`${API_URL}/instagram/posts`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -181,7 +181,7 @@ export async function fetchPostComments(
   const API_URL = getApiUrl()
 
   const response = await fetch(
-    `${API_URL}/api/instagram/posts/${postId}/comments`,
+    `${API_URL}/instagram/posts/${postId}/comments`,
     {
       method: "GET",
       headers: { "Content-Type": "application/json" },
@@ -205,7 +205,7 @@ export interface AnalysisSummary {
 export async function fetchHistory(): Promise<AnalysisSummary[]> {
   const API_URL = getApiUrl()
 
-  const response = await fetch(`${API_URL}/api/history`, {
+  const response = await fetch(`${API_URL}/history/`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -217,7 +217,7 @@ export async function fetchHistory(): Promise<AnalysisSummary[]> {
 export async function fetchAnalysisDetail(id: string): Promise<AnalysisResult> {
   const API_URL = getApiUrl()
 
-  const response = await fetch(`${API_URL}/api/history/${id}`, {
+  const response = await fetch(`${API_URL}/history/${id}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
