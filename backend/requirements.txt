@@ -6,9 +6,11 @@ slowapi==0.1.9
 
 # ML
 vaderSentiment==3.3.2
-transformers==4.41.0
-torch==2.1.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+transformers==4.36.0
 langdetect==1.0.9
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.2+cpu
 
 # Database
 sqlalchemy[asyncio]==2.0.30
