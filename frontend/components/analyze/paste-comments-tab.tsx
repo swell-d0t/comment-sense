@@ -8,20 +8,44 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ResultsUI } from "@/components/analyze/results-ui"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { ErrorBanner } from "@/components/error-banner"
+import { analyzeComments, type AnalysisResult, ApiError } from "@/lib/api"
 
 export function PasteCommentsTab() {
   const [rawText, setRawText] = useState("")
   const [postLabel, setPostLabel] = useState("")
   const [analyzing, setAnalyzing] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleAnalyze = () => {
-    setAnalyzing(true)
-    // Simulate analysis
-    setTimeout(() => {
-      setAnalyzing(false)
+  const handleAnalyze = async () => {
+    if (!rawText.trim()) return
+
+    try {
+      setAnalyzing(true)
+      setError(null)
+
+      const analysis = await analyzeComments(
+        postLabel.trim() || "Pasted Comments",
+        rawText
+      )
+
+      setResult(analysis)
       setShowResults(true)
-    }, 2000)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.detail)
+      } else if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("Failed to analyze comments. Please try again.")
+      }
+      setShowResults(false)
+      setResult(null)
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   return (
@@ -54,6 +78,14 @@ export function PasteCommentsTab() {
           />
         </div>
 
+        {error && (
+          <ErrorBanner
+            message={error}
+            className="mt-2"
+            onDismiss={() => setError(null)}
+          />
+        )}
+
         <Button
           onClick={handleAnalyze}
           disabled={analyzing || !rawText.trim()}
@@ -74,7 +106,7 @@ export function PasteCommentsTab() {
         </Button>
       </div>
 
-      {showResults && <ResultsUI />}
+      {showResults && result && <ResultsUI result={result} />}
     </div>
   )
 }

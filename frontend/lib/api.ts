@@ -1,4 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+
+if (!API_URL) {
+  throw new Error("NEXT_PUBLIC_API_URL is not set. Please configure it in .env.local.")
+}
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -122,6 +126,7 @@ export async function analyzeComments(
   const response = await fetch(`${API_URL}/api/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ label, raw_text: rawText }),
   })
 
@@ -137,6 +142,7 @@ export async function analyzeBatch(
   const response = await fetch(`${API_URL}/api/analyze/batch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ posts }),
   })
 
@@ -150,6 +156,7 @@ export async function fetchMyPosts(): Promise<InstagramPost[]> {
   const response = await fetch(`${API_URL}/api/instagram/posts`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
   })
 
   return handleResponse<InstagramPost[]>(response)
@@ -166,8 +173,40 @@ export async function fetchPostComments(
     {
       method: "GET",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
     }
   )
 
   return handleResponse<PostComment[]>(response)
 }
+
+// ── History ───────────────────────────────────────────────────────────────────
+
+export interface AnalysisSummary {
+  id: string
+  label: string
+  totalComments: number
+  overallSentiment: "positive" | "neutral" | "negative"
+  createdAt: string
+}
+
+export async function fetchHistory(): Promise<AnalysisSummary[]> {
+  const response = await fetch(`${API_URL}/api/history`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  })
+
+  return handleResponse<AnalysisSummary[]>(response)
+}
+
+export async function fetchAnalysisDetail(id: string): Promise<AnalysisResult> {
+  const response = await fetch(`${API_URL}/api/history/${id}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  })
+
+  return handleResponse<AnalysisResult>(response)
+}
+

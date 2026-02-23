@@ -1,5 +1,8 @@
+\"use client\"
+
 import { Instagram } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function LoginPage() {
   return (
@@ -41,9 +44,12 @@ export default function LoginPage() {
           <Button
             className="w-full gap-2"
             size="lg"
+            asChild
           >
-            <Instagram className="size-4" />
-            Continue with Instagram
+            <Link href={`${process.env.NEXT_PUBLIC_API_URL}/auth/login`}>
+              <Instagram className="size-4" />
+              Continue with Instagram
+            </Link>
           </Button>
         </div>
 

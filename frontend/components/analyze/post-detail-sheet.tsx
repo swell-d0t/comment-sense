@@ -14,6 +14,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { ResultsUI } from "@/components/analyze/results-ui"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { ErrorBanner } from "@/components/error-banner"
+import {
+  analyzeComments,
+  fetchPostComments,
+  type AnalysisResult,
+  ApiError,
+} from "@/lib/api"
 
 interface Post {
   id: string
@@ -36,20 +43,47 @@ export function PostDetailSheet({
 }: PostDetailSheetProps) {
   const [analyzing, setAnalyzing] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleAnalyze = () => {
-    setAnalyzing(true)
-    // Simulate analysis
-    setTimeout(() => {
-      setAnalyzing(false)
+  const handleAnalyze = async () => {
+    if (!post) return
+
+    try {
+      setAnalyzing(true)
+      setError(null)
+
+      const comments = await fetchPostComments(post.id)
+      const rawText = comments.map((c) => c.text).join("\n")
+
+      const analysis = await analyzeComments(
+        post.caption || "Instagram Post",
+        rawText
+      )
+
+      setResult(analysis)
       setShowResults(true)
-    }, 2000)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.detail)
+      } else if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("Failed to fetch and analyze comments. Please try again.")
+      }
+      setResult(null)
+      setShowResults(false)
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       setAnalyzing(false)
       setShowResults(false)
+      setResult(null)
+      setError(null)
     }
     onOpenChange(isOpen)
   }
@@ -99,6 +133,14 @@ export function PostDetailSheet({
 
             <Separator className="bg-border" />
 
+            {error && (
+              <ErrorBanner
+                message={error}
+                className="mt-2"
+                onDismiss={() => setError(null)}
+              />
+            )}
+
             {/* Analyze Button */}
             {!showResults && (
               <Button
@@ -122,7 +164,7 @@ export function PostDetailSheet({
             )}
 
             {/* Results */}
-            {showResults && <ResultsUI />}
+            {showResults && result && <ResultsUI result={result} />}
           </div>
         </ScrollArea>
       </SheetContent>

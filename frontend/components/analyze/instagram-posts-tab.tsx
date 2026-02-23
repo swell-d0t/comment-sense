@@ -1,70 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Calendar, MessageSquare } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { PostDetailSheet } from "@/components/analyze/post-detail-sheet"
-
-interface InstagramPost {
-  id: string
-  thumbnailUrl: string
-  caption: string
-  commentCount: number
-  date: string
-}
-
-const mockPosts: InstagramPost[] = [
-  {
-    id: "1",
-    thumbnailUrl: "",
-    caption: "Just launched our newest product line! Check it out via the link in bio. We've been working on this for months and can't wait for you to see it.",
-    commentCount: 342,
-    date: "Feb 20, 2026",
-  },
-  {
-    id: "2",
-    thumbnailUrl: "",
-    caption: "Behind the scenes at our latest photoshoot. The team really brought their A-game today!",
-    commentCount: 189,
-    date: "Feb 18, 2026",
-  },
-  {
-    id: "3",
-    thumbnailUrl: "",
-    caption: "Hear what our customers have to say about their experience. Real stories, real people.",
-    commentCount: 97,
-    date: "Feb 15, 2026",
-  },
-  {
-    id: "4",
-    thumbnailUrl: "",
-    caption: "Important update: We're adjusting our pricing to better reflect the value we provide. Details below.",
-    commentCount: 521,
-    date: "Feb 12, 2026",
-  },
-  {
-    id: "5",
-    thumbnailUrl: "",
-    caption: "Happy Friday from the whole team! Here's to another great week in the books.",
-    commentCount: 64,
-    date: "Feb 10, 2026",
-  },
-  {
-    id: "6",
-    thumbnailUrl: "",
-    caption: "New tutorial: How to get the most out of our platform in just 5 minutes a day.",
-    commentCount: 231,
-    date: "Feb 7, 2026",
-  },
-]
+import { fetchMyPosts, type InstagramPost } from "@/lib/api"
+import { LoadingSpinner } from "@/components/loading-spinner"
+import { ErrorBanner } from "@/components/error-banner"
 
 export function InstagramPostsTab() {
   const [selectedPost, setSelectedPost] = useState<InstagramPost | null>(null)
+  const [posts, setPosts] = useState<InstagramPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await fetchMyPosts()
+        if (!isMounted) return
+        setPosts(data)
+      } catch (err) {
+        if (!isMounted) return
+        if (err instanceof Error) {
+          setError(err.message)
+        } else {
+          setError("Failed to load posts. Please try again.")
+        }
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    load()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <>
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+          <LoadingSpinner size="sm" className="border-primary-foreground/30 border-t-primary-foreground" />
+          Syncing your Instagram posts...
+        </div>
+      )}
+
+      {error && (
+        <ErrorBanner
+          message={error}
+          className="mb-4"
+          onDismiss={() => setError(null)}
+        />
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {mockPosts.map((post) => (
+        {posts.map((post) => (
           <Card
             key={post.id}
             className="cursor-pointer py-0 overflow-hidden transition-colors hover:border-foreground/20"

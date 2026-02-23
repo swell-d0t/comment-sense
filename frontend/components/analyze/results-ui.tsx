@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Download, Search, ThumbsUp, ThumbsDown, MessageSquare, Shield, TrendingUp } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { Button } from "@/components/ui/button"
@@ -24,78 +24,38 @@ import {
 import { SentimentBadge } from "@/components/sentiment-badge"
 import { ConfidenceBar } from "@/components/confidence-bar"
 import { FlagPill } from "@/components/flag-pill"
+import type { AnalysisResult, CommentAnalysis } from "@/lib/api"
 
-// Mock data
-const chartData = [
-  { name: "Positive", value: 62, color: "oklch(0.70 0.15 150)" },
-  { name: "Neutral", value: 24, color: "oklch(0.55 0.005 260)" },
-  { name: "Negative", value: 14, color: "oklch(0.55 0.2 25)" },
-]
+interface ResultsUIProps {
+  result: AnalysisResult | null
+}
 
-const mockComments = [
-  {
-    id: "1",
-    text: "This product is absolutely incredible! Best purchase I've made this year. Highly recommend to everyone.",
-    sentiment: "positive" as const,
-    confidence: 0.94,
-    flags: [],
-  },
-  {
-    id: "2",
-    text: "Looks interesting, might check it out later when I have some time to spare.",
-    sentiment: "neutral" as const,
-    confidence: 0.67,
-    flags: ["model disagreement"],
-  },
-  {
-    id: "3",
-    text: "Terrible customer service. Waited 3 weeks for a response and still no resolution.",
-    sentiment: "negative" as const,
-    confidence: 0.91,
-    flags: [],
-  },
-  {
-    id: "4",
-    text: "Wow, the quality is even better than I expected! You guys really outdid yourselves.",
-    sentiment: "positive" as const,
-    confidence: 0.88,
-    flags: [],
-  },
-  {
-    id: "5",
-    text: "C'est un bon produit, je suis content de l'avoir achete.",
-    sentiment: "positive" as const,
-    confidence: 0.72,
-    flags: ["non-english"],
-  },
-  {
-    id: "6",
-    text: "Not worth the price. There are way better alternatives out there for half the cost.",
-    sentiment: "negative" as const,
-    confidence: 0.85,
-    flags: [],
-  },
-  {
-    id: "7",
-    text: "Does anyone know if they ship internationally?",
-    sentiment: "neutral" as const,
-    confidence: 0.78,
-    flags: [],
-  },
-  {
-    id: "8",
-    text: "Just received mine and I'm in love! The packaging was so thoughtful too.",
-    sentiment: "positive" as const,
-    confidence: 0.92,
-    flags: [],
-  },
-]
-
-export function ResultsUI() {
+export function ResultsUI({ result }: ResultsUIProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sentimentFilter, setSentimentFilter] = useState<string>("all")
 
-  const filteredComments = mockComments.filter((comment) => {
+  if (!result) {
+    return null
+  }
+
+  const chartData = useMemo(() => {
+    if (!result.totalComments || result.totalComments <= 0) {
+      return []
+    }
+
+    const toPct = (value: number) =>
+      Math.round((value / result.totalComments) * 100)
+
+    return [
+      { name: "Positive", value: toPct(result.positive), color: "oklch(0.70 0.15 150)" },
+      { name: "Neutral", value: toPct(result.neutral), color: "oklch(0.55 0.005 260)" },
+      { name: "Negative", value: toPct(result.negative), color: "oklch(0.55 0.2 25)" },
+    ]
+  }, [result])
+
+  const comments: CommentAnalysis[] = result.comments || []
+
+  const filteredComments = comments.filter((comment) => {
     const matchesSearch = comment.text
       .toLowerCase()
       .includes(searchQuery.toLowerCase())
@@ -147,7 +107,9 @@ export function ResultsUI() {
               <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 Avg Confidence
               </span>
-              <span className="text-xl font-semibold text-foreground">84%</span>
+              <span className="text-xl font-semibold text-foreground">
+                {Math.round(result.averageConfidence * 100)}%
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -157,23 +119,25 @@ export function ResultsUI() {
       <Card className="py-4">
         <CardContent>
           <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:gap-8">
-            <div className="h-48 w-48 shrink-0">
+              <div className="h-48 w-48 shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={80}
-                    paddingAngle={3}
-                    dataKey="value"
-                    strokeWidth={0}
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
+                  {chartData.length > 0 && (
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  )}
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "oklch(0.17 0.005 260)",
@@ -297,8 +261,8 @@ export function ResultsUI() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredComments.map((comment) => (
-                <TableRow key={comment.id} className="border-border">
+              {filteredComments.map((comment, index) => (
+                <TableRow key={index} className="border-border">
                   <TableCell className="max-w-md">
                     <p className="line-clamp-2 text-sm text-foreground leading-relaxed">
                       {comment.text}
