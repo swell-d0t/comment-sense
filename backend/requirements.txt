@@ -8,6 +8,7 @@ slowapi==0.1.9
 vaderSentiment==3.3.2
 transformers==4.47.0
 langdetect==1.0.9
+https://download.pytorch.org/whl/cpu/torch-2.1.2%2Bcpu-cp311-cp311-linux_x86_64.whl
 
 # Database
 sqlalchemy[asyncio]==2.0.36
