@@ -11,7 +11,7 @@ build/
 .coverage
 htmlcov/
 
-# ── Environment — NEVER commit these ──────────────────────────
+# ── Environment  ──────────────────────────
 .env
 .env.local
 .env.production
