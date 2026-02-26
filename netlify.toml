@@ -1,0 +1,8 @@
+[build]
+  base = "frontend"
+  command = "pnpm run build"
+  publish = "frontend/.next"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_FLAGS = "--no-frozen-lockfile"
