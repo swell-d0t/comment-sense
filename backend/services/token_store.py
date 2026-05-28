@@ -106,8 +106,6 @@ def _get_redis():
             decode_responses=True,
             socket_connect_timeout=2,
             socket_timeout=2,
-            ssl=True,
-            ssl_cert_reqs=None,
         )
         r.ping()
         return r
