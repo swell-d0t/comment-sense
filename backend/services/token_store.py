@@ -104,8 +104,8 @@ def _get_redis():
         r = redis.from_url(
             os.getenv("REDIS_URL", "redis://localhost:6379"),
             decode_responses=True,
-            socket_connect_timeout=2,
-            socket_timeout=2,
+            socket_connect_timeout=10,
+            socket_timeout=10,
         )
         r.ping()
         return r
