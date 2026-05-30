@@ -112,94 +112,57 @@ def _get_redis():
     except Exception as e:
         logger.warning("Redis unavailable: %s. Falling back to degraded mode.", e)
         return None
+def generate_oauth_state() -> Optional[str]:
+    """
+    Generates a cryptographically signed JWT state parameter.
+    No Redis required — the signature itself proves validity.
+    """
+    import time
+    from python_jose import jwt as jose_jwt
+    
+    secret = os.getenv("JWT_SECRET")
+    if not secret:
+        logger.error("JWT_SECRET not set — cannot generate OAuth state.")
+        return None
+    
+    payload = {
+        "purpose": "oauth_state",
+        "nonce": secrets.token_urlsafe(16),
+        "exp": int(time.time()) + STATE_EXPIRY_SECONDS,
+    }
+    return jose_jwt.encode(payload, secret, algorithm="HS256")
 
 
 def store_oauth_state(state: str) -> bool:
-    """
-    Stores an OAuth state parameter in Redis with a 10-minute expiry.
-    Returns True on success, False if Redis is unavailable.
-
-    The state is a cryptographically random string used to prevent CSRF.
-    It must be verified when Instagram redirects back to our callback URL.
-    """
-    redis_client = _get_redis()
-    if redis_client is None:
-        logger.error(
-            "Cannot store OAuth state — Redis is unavailable. "
-            "OAuth flow is not safe without state validation."
-        )
-        return False
-
-    try:
-        key = f"oauth_state:{state}"
-        redis_client.setex(key, STATE_EXPIRY_SECONDS, "1")
-        return True
-    except Exception as e:
-        logger.error("Failed to store OAuth state in Redis: %s", e)
-        return False
+    """No-op — state is embedded in the signed JWT."""
+    return True
 
 
 def verify_and_consume_oauth_state(state: str) -> bool:
     """
-    Verifies an OAuth state parameter exists and immediately deletes it.
-    Returns True if the state was valid and not previously used.
-    Returns False if the state is unknown, expired, or already consumed.
-
-    The delete-on-read pattern prevents replay attacks: the same state
-    parameter cannot be used twice even if an attacker intercepts the
-    redirect URL.
+    Verifies the JWT state signature and expiry.
+    No Redis required — cryptographic verification only.
     """
+    from python_jose import jwt as jose_jwt, JWTError
+    
     if not state or len(state) < 32:
         logger.warning("OAuth state parameter is missing or too short.")
         return False
-
-    redis_client = _get_redis()
-    if redis_client is None:
-        logger.error(
-            "Cannot verify OAuth state — Redis is unavailable. "
-            "Rejecting OAuth callback for security."
-        )
+    
+    secret = os.getenv("JWT_SECRET")
+    if not secret:
+        logger.error("JWT_SECRET not set — cannot verify OAuth state.")
         return False
-
+    
     try:
-        key = f"oauth_state:{state}"
-        # getdel atomically gets and deletes — prevents race conditions
-        # where two simultaneous requests with the same state both succeed
-        result = redis_client.getdel(key)
-        if result is None:
-            logger.warning(
-                "OAuth state '%s...' not found in Redis — expired or already used.",
-                state[:8]
-            )
+        payload = jose_jwt.decode(state, secret, algorithms=["HS256"])
+        if payload.get("purpose") != "oauth_state":
+            logger.warning("OAuth state JWT has wrong purpose.")
             return False
         return True
-    except AttributeError:
-        # Redis version < 6.2 doesn't have getdel — use pipeline as fallback
-        try:
-            with redis_client.pipeline() as pipe:
-                pipe.get(key)
-                pipe.delete(key)
-                exists, _ = pipe.execute()
-                return exists is not None
-        except Exception as e:
-            logger.error("Redis pipeline failed for state verification: %s", e)
-            return False
-    except Exception as e:
-        logger.error("Failed to verify OAuth state: %s", e)
+    except JWTError as e:
+        logger.warning("OAuth state JWT verification failed: %s", e)
         return False
-
-
-def generate_oauth_state() -> Optional[str]:
-    """
-    Generates a cryptographically secure random state parameter and
-    stores it in Redis. Returns the state string, or None if storage failed.
-    """
-    state = secrets.token_urlsafe(32)
-    success = store_oauth_state(state)
-    if not success:
-        return None
-    return state
-
 
 # ── Token refresh ─────────────────────────────────────────────────────────────
 
