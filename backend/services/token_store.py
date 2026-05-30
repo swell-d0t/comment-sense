@@ -118,7 +118,7 @@ def generate_oauth_state() -> Optional[str]:
     No Redis required — the signature itself proves validity.
     """
     import time
-    from python_jose import jwt as jose_jwt
+    from jose import jwt as jose_jwt
     
     secret = os.getenv("JWT_SECRET")
     if not secret:
@@ -143,7 +143,7 @@ def verify_and_consume_oauth_state(state: str) -> bool:
     Verifies the JWT state signature and expiry.
     No Redis required — cryptographic verification only.
     """
-    from python_jose import jwt as jose_jwt, JWTError
+    from jose import jwt as jose_jwt, JWTError
     
     if not state or len(state) < 32:
         logger.warning("OAuth state parameter is missing or too short.")
