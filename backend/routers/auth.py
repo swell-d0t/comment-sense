@@ -62,8 +62,7 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()  # lax|strict|none
 
 # Instagram permissions we request
-INSTAGRAM_SCOPES = "instagram_basic,instagram_manage_comments,pages_show_list"
-
+INSTAGRAM_SCOPES = "instagram_business_basic,instagram_manage_comments,instagram_business_manage_messages"
 _ALLOWED_JWT_ALGS = {"HS256", "HS384", "HS512"}
 
 
@@ -133,7 +132,7 @@ async def instagram_login():
         )
 
     auth_url = (
-        f"https://api.instagram.com/oauth/authorize"
+        f"https://www.instagram.com/oauth/authorize"
         f"?client_id={META_APP_ID}"
         f"&redirect_uri={REDIRECT_URI}"
         f"&scope={INSTAGRAM_SCOPES}"
